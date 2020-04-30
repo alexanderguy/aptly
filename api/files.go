@@ -92,14 +92,28 @@ func apiFilesUpload(c *gin.Context) {
 			defer src.Close()
 
 			destPath := filepath.Join(path, filepath.Base(file.Filename))
-			dst, err := os.Create(destPath)
+			tmpPath := destPath + ".part"
+
+			dst, err := os.Create(tmpPath)
 			if err != nil {
 				c.AbortWithError(500, err)
 				return
 			}
-			defer dst.Close()
+
+			defer func() {
+				dst.Close()
+				if err != nil {
+					os.Remove(tmpPath)
+				}
+			}()
 
 			_, err = io.Copy(dst, src)
+			if err != nil {
+				c.AbortWithError(500, err)
+				return
+			}
+
+			err = os.Rename(tmpPath, destPath)
 			if err != nil {
 				c.AbortWithError(500, err)
 				return
